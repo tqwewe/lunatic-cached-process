@@ -1,6 +1,6 @@
 [package]
 name = "lunatic-cached-process"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Cached process lookups with lunatic."
 authors = ["Ari Seyhun <ariseyhun@live.com.au>"]
