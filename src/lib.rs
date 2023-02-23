@@ -146,7 +146,6 @@ where
         let proc_ref = proc.lookup_state.borrow();
         match &*proc_ref {
             LookupState::NotLookedUp => {
-                println!("Not looked up");
                 std::mem::drop(proc_ref);
                 match f(proc.process_name) {
                     Some(process) => {
@@ -159,12 +158,8 @@ where
                     }
                 }
             }
-            LookupState::NotPresent => {
-                println!("Not present");
-                None
-            }
+            LookupState::NotPresent => None,
             LookupState::Present(process) => {
-                println!("Present");
                 Some(process.clone()) // TODO: Replace clone with copy
             }
         }
