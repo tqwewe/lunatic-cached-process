@@ -101,6 +101,10 @@ impl_cached_lookup!(ProcessRef, ProcessRefCached);
 /// Cached [`lunatic::Process`].
 ///
 /// ```
+/// use lunatic_cached_process::{cached_process, ProcessCached};
+/// #
+/// # enum CounterMessage {}
+///
 /// cached_process! {
 ///     static COUNTER: ProcessCached<CountMessage> = "global-counter-process";
 /// }
@@ -109,8 +113,17 @@ impl_cached_lookup!(ProcessRef, ProcessRefCached);
 /// Cached [`lunatic::process::ProcessRef`].
 ///
 /// ```
+/// use lunatic_cached_process::{cached_process, ProcessRefCached};
+/// #
+/// # struct CounterProcess {}
+/// # impl lunatic::process::AbstractProcess for CounterProcess {
+/// #     type Arg = ();
+/// #     type State = Self;
+/// #     
+/// # }
+///
 /// cached_process! {
-///     static COUNTER: ProcessCached<CountMessage> = "global-counter-process-ref";
+///     static COUNTER: ProcessRefCached<CounterProcess> = "global-counter-process-ref";
 /// }
 /// ```
 #[macro_export]
