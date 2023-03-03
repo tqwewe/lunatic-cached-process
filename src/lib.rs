@@ -28,6 +28,10 @@ use std::cell::RefCell;
 use lunatic::{process::ProcessRef, serializer::Bincode, Process, ProcessLocal};
 use serde::{Deserialize, Serialize};
 
+/// This is used internally for the cached_process! macro.
+#[doc(hidden)]
+pub use paste::paste;
+
 pub type ProcessCached<'a, T, S = Bincode> = CachedProcess<'a, Process<T, S>>;
 pub type ProcessRefCached<'a, T> = CachedProcess<'a, ProcessRef<T>>;
 
@@ -232,7 +236,7 @@ macro_rules! cached_process {
             static $ident:ident : $process_type:ident <$ty:ty $( , $s:ty )?> = $name:tt ;
         )+
     ) => {
-        paste::paste! {
+        $crate::paste! {
             $(
                 lunatic::process_local! {
                     static $ident: $crate:: [<$process_type Cached>] <'static, $ty $( , $s )?> = $crate::CachedProcess::new($name);
