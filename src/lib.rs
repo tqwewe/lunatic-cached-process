@@ -47,6 +47,51 @@ impl<'a, T> CachedProcess<'a, T> {
             process_name: name,
         }
     }
+
+    /// Returns the process name.
+    pub fn process_name(&'a self) -> &'a str {
+        self.process_name
+    }
+
+    /// Returns true if the process has been looked up and exists.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lunatic::Process;
+    ///
+    /// let process: CachedProcess<'static, Process<()>> = CachedProcess::new("foo");
+    /// assert!(!process.is_present()); // Initially not present
+    ///
+    /// process.get();
+    /// assert!(!process.is_present()); // Not present, even after lookup
+    ///
+    /// spawn!(|| { loop { /* ... */ } }).register("foo"); // Start a process called "foo"
+    ///
+    /// process.reset();
+    /// process.get();
+    /// assert!(process.is_present()); // Is present
+    /// ```
+    pub fn is_present(&'a self) -> bool {
+        matches!(&*self.lookup_state.borrow(), LookupState::Present(_))
+    }
+
+    /// Returns true if the process has been looked up, regardless if the process was found.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lunatic::Process;
+    ///
+    /// let process: CachedProcess<'static, Process<()>> = CachedProcess::new("");
+    /// assert!(!process.is_looked_up());
+    ///
+    /// process.get();
+    /// assert!(process.is_looked_up());
+    /// ```
+    pub fn is_looked_up(&'a self) -> bool {
+        matches!(&*self.lookup_state.borrow(), LookupState::NotLookedUp)
+    }
 }
 
 /// Trait for accessing a static process local cache.
