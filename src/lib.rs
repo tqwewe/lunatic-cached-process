@@ -7,19 +7,19 @@
 //!
 //! ```
 //! use lunatic::{spawn_link, test};
-//! use lunatic_cached_process::{cached_process, CachedLookup, ProcessCached};
+//! use lunatic_cached_process::{cached_process, CachedLookup};
 //!
 //! cached_process! {
-//!     static COUNTER_PROCESS: ProcessCached<()> = "counter-process";
+//!     static COUNTER_PROCESS: Process<()> = "counter-process";
 //! }
 //!
 //! let process = spawn_link!(|mailbox: Mailbox<()>| { loop { } });
 //! process.register("counter-process");
 //!
-//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // First call lookup process from host
+//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // First call will lookup process from lunatic runtime
 //! assert!(lookup.is_some());
 //!
-//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // Subsequent calls will use cached process
+//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // Subsequent calls will use cached lookup
 //! assert!(lookup.is_some());
 //! ```
 
@@ -28,20 +28,20 @@ use std::cell::RefCell;
 use lunatic::{process::ProcessRef, serializer::Bincode, Process, ProcessLocal};
 use serde::{Deserialize, Serialize};
 
-pub type ProcessCached<T, S = Bincode> = CachedProcess<Process<T, S>>;
-pub type ProcessRefCached<T> = CachedProcess<ProcessRef<T>>;
+pub type ProcessCached<'a, T, S = Bincode> = CachedProcess<'a, Process<T, S>>;
+pub type ProcessRefCached<'a, T> = CachedProcess<'a, ProcessRef<T>>;
 
 /// Cached process to avoid looking up a global process multiple times.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CachedProcess<T> {
+pub struct CachedProcess<'a, T> {
     // TODO: Replace with `Cell` when lunatic gets a new version where `ProcessRef` is `Copy`.
     lookup_state: RefCell<LookupState<T>>,
-    process_name: &'static str,
+    process_name: &'a str,
 }
 
-impl<T> CachedProcess<T> {
+impl<'a, T> CachedProcess<'a, T> {
     /// Construct a new process cache with a registered process name.
-    pub fn new(name: &'static str) -> Self {
+    pub fn new(name: &'a str) -> Self {
         CachedProcess {
             lookup_state: RefCell::new(LookupState::NotLookedUp),
             process_name: name,
@@ -63,7 +63,7 @@ pub trait CachedLookup<'a, T> {
     fn reset(&'a self);
 }
 
-impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessLocal<ProcessCached<T, S>> {
+impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessLocal<ProcessCached<'_, T, S>> {
     #[inline]
     fn get(&'static self) -> Option<Process<T, S>> {
         self.with(|proc| lookup(proc, |name| Process::lookup(name)))
@@ -80,7 +80,7 @@ impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessLocal<ProcessCached<T
     }
 }
 
-impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessCached<T, S> {
+impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessCached<'_, T, S> {
     #[inline]
     fn get(&'static self) -> Option<Process<T, S>> {
         lookup(self, |name| Process::lookup(name))
@@ -97,7 +97,7 @@ impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessCached<T, S> {
     }
 }
 
-impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<T>> {
+impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<'_, T>> {
     #[inline]
     fn get(&'static self) -> Option<ProcessRef<T>> {
         self.with(|proc| lookup(proc, |name| ProcessRef::lookup(name)))
@@ -114,7 +114,7 @@ impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<T
     }
 }
 
-impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<T> {
+impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<'_, T> {
     #[inline]
     fn get(&'static self) -> Option<ProcessRef<T>> {
         lookup(self, |name| ProcessRef::lookup(name))
@@ -133,43 +133,66 @@ impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<T> {
 
 /// Macro for defining a process local lookup cache for processes.
 ///
+/// The structure is as follows:
+///
+/// ```
+/// static <ident>: <process_type> = <process_name>;
+/// ```
+///
+/// Where
+///
+/// - `<ident>`: Static variable name.
+/// - `<process_type>`: Either `Process<T>`, `ProcessRef<T>`, or `Process<T, S>` where `T` is the message type, and `S` is the serializer.
+/// - `<process_name>`: The string literal of the process name.
+///
 /// # Examples
 ///
 /// Cached [`lunatic::Process`].
 ///
 /// ```
-/// use lunatic_cached_process::{cached_process, ProcessCached};
-/// #
-/// # enum CounterMessage {}
+/// use lunatic_cached_process::cached_process;
+/// use serde::{Serialize, Deserialize};
 ///
 /// cached_process! {
-///     static COUNTER: ProcessCached<CountMessage> = "global-counter-process";
+///     static COUNTER: Process<CountMessage> = "global-counter-process";
+/// }
+///
+/// #[derive(Serialize, Deserialize)]
+/// enum CountMessage {
+///     Inc,
+///     Dec,
 /// }
 /// ```
 ///
 /// Cached [`lunatic::process::ProcessRef`].
 ///
 /// ```
-/// use lunatic_cached_process::{cached_process, ProcessRefCached};
-/// #
-/// # struct CounterProcess {}
-/// # impl lunatic::process::AbstractProcess for CounterProcess {
-/// #     type Arg = ();
-/// #     type State = Self;
-/// #     
-/// # }
+/// use lunatic_cached_process::cached_process;
 ///
 /// cached_process! {
-///     static COUNTER: ProcessRefCached<CounterProcess> = "global-counter-process-ref";
+///     static COUNTER: ProcessRef<CounterProcess> = "global-counter-process-ref";
+/// }
+///
+/// struct CounterProcess;
+///
+/// impl lunatic::process::AbstractProcess for CounterProcess {
+///     type Arg = ();
+///     type State = Self;
 /// }
 /// ```
 #[macro_export]
 macro_rules! cached_process {
     (
-        static $ident:ident : $ty:ty = $name:tt ;
+        $(
+            static $ident:ident : $process_type:ident <$ty:ty $( , $s:ty )?> = $name:tt ;
+        )+
     ) => {
-        lunatic::process_local! {
-            static $ident: $ty = $crate::CachedProcess::new($name);
+        paste::paste! {
+            $(
+                lunatic::process_local! {
+                    static $ident: $crate:: [<$process_type Cached>] <'static, $ty $( , $s )?> = $crate::CachedProcess::new($name);
+                }
+            )+
         }
     };
 }
@@ -188,9 +211,9 @@ impl<T> Default for LookupState<T> {
 }
 
 #[inline]
-fn lookup<F, T>(proc: &CachedProcess<T>, f: F) -> Option<T>
+fn lookup<'a, F, T>(proc: &'a CachedProcess<T>, f: F) -> Option<T>
 where
-    F: Fn(&'static str) -> Option<T>,
+    F: Fn(&'a str) -> Option<T>,
     T: Clone,
 {
     let proc_ref = proc.lookup_state.borrow();

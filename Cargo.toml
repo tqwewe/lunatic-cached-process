@@ -13,6 +13,7 @@ repository = "https://github.com/tqwewe/lunatic-cached-process"
 [dependencies]
 lunatic = "0.12.1"
 serde = { version = "1.0.152", features = ["derive"] }
+paste = "1.0.11"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]

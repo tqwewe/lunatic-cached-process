@@ -1,11 +1,13 @@
-use lunatic::{spawn_link, test};
-use lunatic_cached_process::{cached_process, CachedLookup, ProcessCached};
+use lunatic::{serializer::Bincode, spawn_link, test};
+use lunatic_cached_process::{cached_process, CachedLookup};
 use serde::{Deserialize, Serialize};
 
 const PROCESS_NAME: &str = "my-awesome-process";
 
 cached_process! {
-    static FOO: ProcessCached<Message> = PROCESS_NAME;
+    static FOO: Process<Message> = PROCESS_NAME;
+    static BAR: Process<Message, Bincode> = PROCESS_NAME;
+    static BAZ: ProcessRef<Message> = PROCESS_NAME;
 }
 
 #[derive(Serialize, Deserialize)]
