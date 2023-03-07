@@ -233,13 +233,13 @@ impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<'_, T> {
 macro_rules! cached_process {
     (
         $(
-            static $ident:ident : $process_type:ident <$ty:ty $( , $s:ty )?> = $name:tt ;
+            $(#[$attr:meta])* $vis:vis static $ident:ident : $process_type:ident <$ty:ty $( , $s:ty )?> = $name:tt ;
         )+
     ) => {
         $crate::paste! {
             $(
                 lunatic::process_local! {
-                    static $ident: $crate:: [<$process_type Cached>] <'static, $ty $( , $s )?> = $crate::CachedProcess::new($name);
+                    $(#[$attr])* $vis static $ident: $crate:: [<$process_type Cached>] <'static, $ty $( , $s )?> = $crate::CachedProcess::new($name);
                 }
             )+
         }
