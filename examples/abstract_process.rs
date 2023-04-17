@@ -1,4 +1,7 @@
-use lunatic::process::{AbstractProcess, ProcessRef, StartProcess};
+use lunatic::{
+    ap::{AbstractProcess, Config, ProcessRef},
+    serializer::Bincode,
+};
 use lunatic_cached_process::{cached_process, CachedLookup};
 
 cached_process! {
@@ -8,16 +11,22 @@ cached_process! {
 struct Counter(i32);
 
 impl AbstractProcess for Counter {
-    type Arg = i32;
     type State = Self;
+    type Serializer = Bincode;
+    type Arg = i32;
+    type Handlers = ();
+    type StartupError = ();
 
-    fn init(_this: ProcessRef<Self>, initial_count: Self::Arg) -> Self::State {
-        Counter(initial_count)
+    fn init(
+        _config: Config<Self>,
+        initial_count: Self::Arg,
+    ) -> Result<Self::State, Self::StartupError> {
+        Ok(Counter(initial_count))
     }
 }
 
 fn main() {
-    Counter::start(0, Some("counter-abstract-process"));
+    Counter::start_as("counter-abstract-process", 0).unwrap();
 
     let lookup: Option<ProcessRef<Counter>> = COUNTER_ABSTRACT_PROCESS.get(); // First call lookup process from host
     assert!(lookup.is_some());

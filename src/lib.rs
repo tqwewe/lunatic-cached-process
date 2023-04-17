@@ -16,16 +16,16 @@
 //! let process = spawn_link!(|mailbox: Mailbox<()>| { loop { } });
 //! process.register("counter-process");
 //!
-//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // First call will lookup process from lunatic runtime
+//! let lookup: Option<Process<()>> = COUNTER_PROCESS.get(); // First call will lookup process from lunatic runtime
 //! assert!(lookup.is_some());
 //!
-//! let lookup: Option<Process<T>> = COUNTER_PROCESS.get(); // Subsequent calls will use cached lookup
+//! let lookup: Option<Process<()>> = COUNTER_PROCESS.get(); // Subsequent calls will use cached lookup
 //! assert!(lookup.is_some());
 //! ```
 
 use std::cell::RefCell;
 
-use lunatic::{process::ProcessRef, serializer::Bincode, Process, ProcessLocal};
+use lunatic::{ap::ProcessRef, serializer::Bincode, AbstractProcess, Process, ProcessLocal};
 use serde::{Deserialize, Serialize};
 
 /// This is used internally for the cached_process! macro.
@@ -146,7 +146,10 @@ impl<T, S> CachedLookup<'static, Process<T, S>> for ProcessCached<'_, T, S> {
     }
 }
 
-impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<'_, T>> {
+impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<'_, T>>
+where
+    T: AbstractProcess,
+{
     #[inline]
     fn get(&'static self) -> Option<ProcessRef<T>> {
         self.with(|proc| lookup(proc, |name| ProcessRef::lookup(name)))
@@ -163,7 +166,10 @@ impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessLocal<ProcessRefCached<'
     }
 }
 
-impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<'_, T> {
+impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<'_, T>
+where
+    T: AbstractProcess,
+{
     #[inline]
     fn get(&'static self) -> Option<ProcessRef<T>> {
         lookup(self, |name| ProcessRef::lookup(name))
@@ -216,17 +222,31 @@ impl<T> CachedLookup<'static, ProcessRef<T>> for ProcessRefCached<'_, T> {
 /// Cached [`lunatic::process::ProcessRef`].
 ///
 /// ```
+/// use lunatic::{
+///     ap::{AbstractProcess, Config, ProcessRef},
+///     serializer::Bincode,
+/// };
 /// use lunatic_cached_process::cached_process;
 ///
 /// cached_process! {
 ///     static COUNTER: ProcessRef<CounterProcess> = "global-counter-process-ref";
 /// }
 ///
-/// struct CounterProcess;
+/// struct Counter(i32);
 ///
-/// impl lunatic::process::AbstractProcess for CounterProcess {
-///     type Arg = ();
+/// impl AbstractProcess for Counter {
 ///     type State = Self;
+///     type Serializer = Bincode;
+///     type Arg = i32;
+///     type Handlers = ();
+///     type StartupError = ();
+///
+///     fn init(
+///         _config: Config<Self>,
+///         initial_count: Self::Arg,
+///     ) -> Result<Self::State, Self::StartupError> {
+///         Ok(Counter(initial_count))
+///     }
 /// }
 /// ```
 #[macro_export]
